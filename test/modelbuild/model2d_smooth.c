@@ -1,4 +1,4 @@
-/* 2-D ENO interpolation. */
+/* 2-D ENO interpolation of the velocity model */
 #include <rsf.h>
 #include "velocity.h"
 

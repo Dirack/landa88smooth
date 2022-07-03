@@ -240,7 +240,7 @@ model matrix using the slowness definition slow=(1.0/(v*v)).
 }
 
 void smooth(float *data, int *n, int nrep, int *rect)
-/*< Smooth velocity field >*/
+/*< Smooth velocity field using ENO interpolation >*/
 {
 	int dim = 2;
 	int dim1 = 1;
