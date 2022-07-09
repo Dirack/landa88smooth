@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <rsf.h>
 #include "raytrace.h"
+#include "velocity_lib.h"
 #include "tomography.h"
 /*^*/
 
@@ -127,8 +128,9 @@ int stackOverCRETimeCurve(
 			   float *sumAmplitudes2, /* Samples sum squared */
 			   float ***data, /* Seismic data cube */
 			   int *n, /* Data number of samples (n1,n2,n3) */
-			   float *o /* Data axis origins (o1,o2,o3) */,
-			   float *d /* Data samplings (d1,d2,d3) */)
+			   float *o, /* Data axis origins (o1,o2,o3) */
+			   float *d, /* Data samplings (d1,d2,d3) */
+			   bool cds)
 /*< Calculate CRE trajectory calculation and stack over CRE traveltime curve
 Note: sumAmplitudes and sumAmplitudes2 variables are changed inside function
 >*/
@@ -156,7 +158,7 @@ Note: sumAmplitudes and sumAmplitudes2 variables are changed inside function
 
 		im = (int) (m/d[2]);
 
-		tetai = (int) round((double) creTimeApproximation(h,m,v0,t0,m0,RNIP,BETA,false)/d[0]);
+		tetai = (int) round((double) creTimeApproximation(h,m,v0,t0,m0,RNIP,BETA,cds)/d[0]);
 
 		if(tetai > n[0] || tetai < 0 || im < 0 || im > n[2]){
 			sa += 0.;
@@ -370,7 +372,8 @@ float forwardModeling(
 			   float *osz,
 			   float *dsz,
 			   float *otrnip,
-			   float *otbeta)
+			   float *otbeta,
+			   bool cds)
 /*< Return Average Semblance from all NIP sources.
 Values of x and p are changed inside the function.
 The trajectory traj is stored as follows: {z0,y0,z1,y1,z2,y2,...} in 2-D
@@ -435,7 +438,7 @@ performed in obtained ray trajectory to calculate RNIP and BETA angle.
 				semb=0.;
 				for(k=0;k<31;k++){
 					tt = (2*it*dt)+(k-16)*dt;
-					numSamples = stackOverCRETimeCurve(rnip,beta,x[1],tt,v0,&sumAmplitudes,&sumAmplitudes2,data,data_n,data_o,data_d);
+					numSamples = stackOverCRETimeCurve(rnip,beta,x[1],tt,v0,&sumAmplitudes,&sumAmplitudes2,data,data_n,data_o,data_d,cds);
 					if(sumAmplitudes2<0.0001){
 						semb += 0.;
 					}else{

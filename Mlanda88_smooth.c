@@ -73,6 +73,7 @@ int main(int argc, char* argv[])
 	float data_o[3]; // o1, o2, o3 axis origins of data
 	float data_d[3]; // d1, d2, d3 sampling of data
 	int itf;
+	bool cds;
 	sf_file shots; // NIP sources (z,x)
 	sf_file vel; // background velocity model
 	sf_file vz_file; // Initial Layer velocity
@@ -151,6 +152,9 @@ int main(int argc, char* argv[])
 
 	if(!sf_getint("itf",&itf)) itf=0;
 	/* Interface being inverted */
+
+	if(!sf_getbool("cds",&cds)) cds=false;
+	/* Use cds approximations instead of cre */
 
 	/* Shotsfile: get shot points (z=0, x=m0) */
 	if(!sf_histint(shots,"n1",&ndim) || 2 != ndim)
@@ -288,7 +292,7 @@ int main(int argc, char* argv[])
 
 			/* Forward modeling */
 			// TODO change tmis variable name to semb (Semblance)
-			tmis=forwardModeling(s,v0,t0,m0,RNIP,BETA,n,o,d,slow,a,ns,data,data_n,data_o,data_d,itf,cnewv,nsv,sz,nsz,osz,dsz,otrnip,otbeta);
+			tmis=forwardModeling(s,v0,t0,m0,RNIP,BETA,n,o,d,slow,a,ns,data,data_n,data_o,data_d,itf,cnewv,nsv,sz,nsz,osz,dsz,otrnip,otbeta,cds);
 		
 			if(fabs(tmis) > fabs(tmis0) ){
 				otmis = fabs(tmis);
