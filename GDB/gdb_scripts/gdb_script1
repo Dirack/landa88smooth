@@ -1,0 +1,17 @@
+# Command scripts for GNU debugger (GDB)
+#
+# You can call this script to set up the program stereoniptomo.x
+# for debugging. Inside GDB session call it:
+# source gdb_script1
+
+cd landa88_smooth
+
+set args < modelinv_1.rsf t0s=t0s1.rsf m0s=m0s1.rsf rnips=rnips1.rsf betas=betas1.rsf sv=vspline_0.rsf vspline=vspline_1.rsf data=interpolatedDataCube.rsf shotsfile=shotsfile1.rsf sz=zspline_0.rsf zspline=zspline_1.rsf v0=1.508 nit=100 c0=0.2 temp0=2 minvel=1.6 maxvel=2 first=n itf=1 otsemb=otsemb_1.rsf > modelinv_2.rsf
+
+
+show args
+#b vfsacrsnh_lib.c:102
+#b model2d.c:110
+#display *rnip
+r
+q
