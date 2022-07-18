@@ -36,5 +36,5 @@ help:
 	@echo "Use 'make' to run unit tests and intergration test"
 	@echo "Use 'make progname' to generate a GDB version of progname for debug"
 	@echo "Programs available:"
-	@echo "\tlanda88tomo"
+	@echo "\tlanda88smooth"
 

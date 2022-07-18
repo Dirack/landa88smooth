@@ -46,7 +46,7 @@ If cds parameter is true, it uses the non-hyperbolic CRS formula with CDS condit
 	float d = m-m0; // Distance to central CMP m0
 	float c1; // CRE coefficient
 	float c2; // CRE coefficient
-	float a1, a2, b2, b1, Fd, Fd1, Fd2; // Non-hyperbolic CRS coefficients
+	float a1, a2, Fd1, Fd2; // Non-hyperbolic CRS coefficients
 	float t; // traveltime t(m,h)
 
 	if(cds){
@@ -196,16 +196,16 @@ ray position is (x=m0,z=0) at acquisition surface.
 >*/
 {
 
-	float x[2];
-	float p[2];
-	float t;
-	raytrace rt;
-	float **traj;
-	int nt;
-	int it;
-	int i;
-	int is;
-	float teta;
+	float x[2]; // Source position
+	float p[2]; // Ray direction slowness vector
+	float t; // tmp variable for calculations
+	raytrace rt; // Raytrace struct
+	float **traj; // Ray trajectory
+	int nt; // Number of ray samples
+	int it; // Ray sample index
+	int i; // Ray sample index
+	int is; // Loop counter
+	float teta; // NIP angle direction in radians
 
 	for(is=0; is<ns; is++){
 
@@ -268,85 +268,6 @@ ray position is (x=m0,z=0) at acquisition surface.
 
 }
 
-float calculateRNIPWithHubralLaws(float dt,
-                                  float** traj, /* Normal ray trajectory */
-                                  int nt, /* Normal ray times samples */
-                                  float *v, /* layers velocities */
-                                  int nv, /* Number of layers */
-                                  int itf, /* Interface index */
-                                  float *sz, /* Splines nodepoints */
-                                  int *nsz, /* Number of nodepoints */
-                                  float *osz, /* Nodepoints origin */
-                                  float *dsz /* Nodepoints sampling */)
-/*< TODO >*/
-{
-	int i, j; // loop counter
-        float rnip=0.; // RNIP parameter
-        float vt, vi; // velocities
-        float x[2]; // (z,x) position vector
-        float zr, zi, vel;
-        int length=0, it; 
-        int pass=0;
-	float *szz;
-	float *xs;
-	float **coef;
-	int l;
-	float z[1];
-
-	xs = sf_floatalloc(nsz[0]);
-	szz = sf_floatalloc(nsz[0]);
-
-	for(i=0;i<nsz[0];i++){
-		xs[i] = i*dsz[0]+osz[0];
-		szz[i] = sz[(itf-1)*nsz[0]+i];
-        }
-
-        /* Calculate coefficients matrix (interfaces interpolation) */
-	coef = sf_floatalloc2(4*(nsz[0]-1),1);
-	calculateSplineCoeficients(nsz[0],xs,szz,coef[0]);
-
-        // XXX if nv=1, zero division error!
-        if(nv<=1) sf_error("%s: %d: nv can't be 1 or less! It will cause a zero division error!",__FILE__,__LINE__);
-
-
-        x[0] = traj[0][0];
-        x[1] = traj[0][1];
-        vt = v[itf];
-        rnip+=vt*dt;
-	for(i=1;i<nt;i++){
-                x[0] = traj[i][0];
-                x[1] = traj[i][1];
-
-                if(itf > 0){
-			l = (int) x[1]/dsz[0];
-                        calcInterfacesZcoord(z,1,x[1]-x[l],l,coef);
-
-                        if((traj[i][0]-z[0])<0.001){
-                                rnip=rnip*vt/v[itf-1];
-                                itf--;
-                                vt=v[itf];
-				if(itf>0){
-					for(j=0;j<nsz[0];j++){
-						szz[j] = sz[(itf-1)*nsz[0]+j];
-					}
-
-					/* Calculate coefficients matrix (interfaces interpolation) */
-					calculateSplineCoeficients(nsz[0],xs,szz,coef[0]);
-
-				}
-                        }
-                }
-
-                /* Propagation law */
-                rnip+=vt*dt;
-        }
-
-	free(xs); free(szz); free(coef);
-
-        return rnip;
-
-}
-
 float forwardModeling(
 			   float** s, /* NIP sources matrix (z,x) pairs */
 			   float v0, /* Near surface velocity */
@@ -364,16 +285,16 @@ float forwardModeling(
 			   int *data_n, /* Data number of samples */
 			   float *data_o, /* Data axis origin */
 			   float *data_d, /* Data sampling */
-			   int itf,
-			   float *sv,
-			   int nsv,
-			   float *sz,
-			   int *nsz,
-			   float *osz,
-			   float *dsz,
-			   float *otrnip,
-			   float *otbeta,
-			   bool cds)
+			   int itf, /* interface index */
+			   float *sv, /* layers velocities */
+			   int nsv, /* number of layers */
+			   float *sz, /* Interface nodes in z */
+			   int *nsz, /* Number of nodes, number interfaces */
+			   float *osz, /* Nodes origin, first interface */
+			   float *dsz, /* Nodes sampling, interfaces increment index */
+			   float *otrnip, /* Optimized RNIP parameter */
+			   float *otbeta, /* Optimized BETA parameter */
+			   bool cds /* Use CDS condition? */)
 /*< Return Average Semblance from all NIP sources.
 Values of x and p are changed inside the function.
 The trajectory traj is stored as follows: {z0,y0,z1,y1,z2,y2,...} in 2-D
@@ -397,14 +318,13 @@ performed in obtained ray trajectory to calculate RNIP and BETA angle.
 	float** traj; // Ray trajectory (z,x)
 	float tmis=0; // time misfit
 	float *x; // Source position (z,x)
-	float beta;
-	float rnip;
-	float sumAmplitudes=0., sumAmplitudes2=0.;
-	int numSamples=1;
-	float semb;
-	float tt;
-	int k;
-	float rr[3]={1,1.95,2.01};
+	float beta; // BETA parameter
+	float rnip; // RNIP parameter
+	float sumAmplitudes=0., sumAmplitudes2=0.; // Amplitudes sum
+	int numSamples=1; // Number of samples
+	float semb; // Semblance
+	float tt; // Normal ray traveltime in a semblance curve
+	int k; // Semblance curve index
 
 	x = sf_floatalloc(2);
 
@@ -424,28 +344,24 @@ performed in obtained ray trajectory to calculate RNIP and BETA angle.
 
                         /* Calculate RNIP */
 			rnip = calculateRNIPWithDynamicRayTracing(rt,dt,it,traj,v0);
-			//rnip = calculateRNIPWithHubralLaws(dt,traj,it,sv,nsv,itf,sz,nsz,osz,dsz);
 
 			/* Calculate BETA */
 			beta = calculateBetaWithRayTrajectory(x,traj,it);
 
 			otrnip[is]=rnip; otbeta[is]=beta;
-			//if(rnip<0.)
-			//sf_warning("rnip=%f RNIP=%f beta=%f BETA=%f m0=%f m=%f t0=%f t=%f z=%f x=%f",ns,rnip,RNIP[is],beta,BETA[is],m0[is],traj[it][1],t0[is],2*it*dt,s[is][0],s[is][1]);
-			//if(fabs(rnip-rr[itf])<0.5){
-			if(fabs(rnip-RNIP[is])<0.5){
-			//if(true){
+
+			if(rnip > 0.){
 				semb=0.;
-				for(k=0;k<31;k++){
-					tt = (2*it*dt)+(k-16)*dt;
+				for(k=0;k<21;k++){
+					tt = (2*it*dt)+(k-10)*dt;
 					numSamples = stackOverCRETimeCurve(rnip,beta,x[1],tt,v0,&sumAmplitudes,&sumAmplitudes2,data,data_n,data_o,data_d,cds);
 					if(sumAmplitudes2<0.0001){
 						semb += 0.;
 					}else{
 						semb += fabs(sumAmplitudes*sumAmplitudes)/(numSamples*sumAmplitudes2);
 					}
-				}
-				tmis += semb/(31.*dt);
+				} // Loop over semblance curves
+				tmis += semb/(21*dt);
 			}else{
 				tmis += 0.;
 			}
@@ -467,332 +383,3 @@ performed in obtained ray trajectory to calculate RNIP and BETA angle.
 	return tmis;
 }
 
-float creForwardModeling(
-			   float** s, /* NIP sources matrix (z,x) pairs */
-			   float v0, /* Near surface velocity */
-			   float* t0, /* Normal ray traveltime for each NIP source */
-			   float* m0, /* Central CMP for each NIP source */
-			   float* RNIP, /* RNIP parameter for each NIP source */
-			   float* BETA, /* BETA parameter for each NIP source */
-			   int *n, /* Velocity model dimension n1=n[0] n2=n[1] */
-			   float *o, /* Velocity model axis origin o1=o[0] o2=o[1] */
-			   float *d, /* Velocity model sampling d1=d[0] d2=d[1] */
-			   float *slow, /* Slowness velociy model */
-			   float *a, /* Normal ray angle for each NIP source (degrees) */
-			   int ns, /* Number of NIP sources */
-			   float ***data, /* Seismic data cube A(m,h,t) */
-			   int *data_n, /* Data number of samples */
-			   float *data_o, /* Data axis origin */
-			   float *data_d /* Data sampling */)
-/*< Return L2 norm of the time misfit: The time misfit is the difference
-between the traveltime calculated using raytracing and the traveltime calculated
-with the CRE traveltime formula 
-
-Values of x and p are changed inside the function.
-The trajectory traj is stored as follows: {z0,y0,z1,y1,z2,y2,...} in 2-D
-
-Note: This function traces nr reflection rays from each NIP source
-(a depth point coordinate) to acquisition surface. NIP sources coordinates
-are passed through s matrix. This function returns the L2 norm of the difference
-between the traveltime of the reflection rays and the calculated traveltime using CRE
-traveltime approximation. This difference is time misfit.
-
-To simulate a reflection ray, this function traces a ray from the NIP source to the
-source location in the acquisition surface and it stores its traveltime ts. And this
-function traces a ray from the NIP source to the receiver location in the acquisition
-surface and it stores the traveltime tr. The total reflection ray traveltime will be the
-sum of t=ts+tr.
- >*/
-{
-
-	int is; // loop counter
-	float ps[2]; // slowness vector
-	float pr[2]; // slowness vector
-	float t=0.; // Ray traveltime
-	int nt=10000; // number of time samples in each ray
-	float dt=0.001; // time sampling of rays
-	raytrace rts; // raytrace struct
-	raytrace rtr; // raytrace struct
-	float** trajs; // Ray trajectory (z,x)
-	float** trajr; // Ray trajectory (z,x)
-	float tmis=0; // time misfit
-	float xs[2]; // Source position (z,x)
-	float xr[2]; // Source position (z,x)
-	float beta;
-	float rnip;
-	float sumAmplitudes[5], sumAmplitudes2[5];
-	int numSamples=1;
-	float nrdeg;
-	float semb;
-	float tt;
-	int k, i;
-	int ir, it, ih, im, its, itr;
-	int nr=50;
-	float tr, ts, m, h;
-
-	/* initialize ray tracing object */
-	rts = raytrace_init(2,true,nt,dt,n,o,d,slow,ORDER);
-	trajs = sf_floatalloc2(2,nt+1);
-	rtr = raytrace_init(2,true,nt,dt,n,o,d,slow,ORDER);
-	trajr = sf_floatalloc2(2,nt+1);
-
-       for(is=0;is<ns;is++){
-
-                xs[0]=s[is][0];
-                xs[1]=s[is][1];
-                xr[0]=s[is][0];
-                xr[1]=s[is][1];
-                nrdeg = a[is]; // angle in degree
-		for(i=0;i<5;i++){
-			sumAmplitudes[i]=0.;
-			sumAmplitudes2[i]=0.;
-		}
-
-                for(ir=0;ir<nr;ir++){
-
-			// NIP to source ray
-			ps[0] = -cosf(nrdeg-(ir+1)*DANGLE);
-			ps[1] = sinf(nrdeg-(ir+1)*DANGLE);
-
-			// NIP to receiver ray
-			pr[0] = -cosf(nrdeg+(ir+1)*DANGLE);
-			pr[1] = sinf(nrdeg+(ir+1)*DANGLE);
-
-			/* Ray tracing */
-			its = trace_ray (rts, xs, ps, trajs);
-			itr = trace_ray (rtr, xr, pr, trajr);
-
-			if(its>0 && itr>0){
-				ts=its*dt;
-				xs[0]=trajs[its][0];
-				xs[1]=trajs[its][1];
-				tr=itr*dt;
-				xr[0]=trajr[itr][0];
-				xr[1]=trajr[itr][1];
-			}else{ // Side or bottom ray
-				/* TODO to correct the way you treat side rays */
-				sf_warning("BAD RAY ANGLE IN ZGRAD INVERSION");
-				sf_warning("From: x=%f z=%f",s[is][0],s[is][1]);
-				sf_warning("To: x=%f z=%f",s[is][0],s[is][1]);
-				sf_warning("Traveltime (s): %f",t);
-				//sf_warning("Starting angle (degrees): %.2f",currentRayAngle*180./SF_PI);
-				//sf_warning("Escape angle (degrees): %.2f",currentRayAngle*180./SF_PI);
-				sf_error("Bad angle, ray get to the model side/bottom");
-			}
-
-                        m = (xr[1]+xs[1])/2.;
-                        h = (xr[1]-xs[1])/2.;
-
-			im = (m-data_o[2])/data_d[2];
-			ih = (h-data_o[1])/data_d[1];
-			it = ((ts+tr)-data_o[0])/data_d[0];
-			for(k=0;k<5;k++){
-				sumAmplitudes[k] += data[im][ih][it-2];
-				sumAmplitudes2[k] += sumAmplitudes[k]*sumAmplitudes[k];
-			}
-
-			xs[0] = s[is][0];
-			xs[1] = s[is][1];
-
-			xr[0] = s[is][0];
-			xr[1] = s[is][1];
-			//sf_warning("%f %f",nrdeg+(ir+1)*DANGLE,nrdeg-(ir+1)*DANGLE);
-			sf_warning("%d %d %d",im,ih,it);
-			//sf_warning("%f",sumAmplitudes);
-                } /* Loop over reflection rays */
-		for(k=0;k<5;k++){
-			semb += (sumAmplitudes[k]*sumAmplitudes[k])/(dt*nr*sumAmplitudes2[k]);
-		}
-
-        } /* Loop over NIP sources */
-
-	/* Raytrace close */
-	raytrace_close(rts);
-	free(trajs);
-
-	raytrace_close(rtr);
-	free(trajr);
-
-        /* L2 norm to evaluate the time misfit */
-	return semb/ns;
-}
-
-void sortingXinAscendingOrderToMedian(
-				float *x, /* x vector to sort */
-				int n /* Vectors dimension */)
-/*< x vector sorting in ascending order >*/
-{
-	int i; // Loop counter
-	float tmpx, tmpz; // Temporary variables
-	int k; // Sorting key (number of changes)
-
-	do{
-		k=0;
-		for(i=1;i<n;i++){
-			if(x[i-1]>x[i]){
-				tmpx=x[i-1];
-				x[i-1]=x[i];
-				x[i]=tmpx;
-				k++;
-			}
-		} // Loop vector samples
-	}while(k!=0);
-}
-
-
-float creForwardModelingMean(
-			   float** s, /* NIP sources matrix (z,x) pairs */
-			   float v0, /* Near surface velocity */
-			   float* t0, /* Normal ray traveltime for each NIP source */
-			   float* m0, /* Central CMP for each NIP source */
-			   float* RNIP, /* RNIP parameter for each NIP source */
-			   float* BETA, /* BETA parameter for each NIP source */
-			   int *n, /* Velocity model dimension n1=n[0] n2=n[1] */
-			   float *o, /* Velocity model axis origin o1=o[0] o2=o[1] */
-			   float *d, /* Velocity model sampling d1=d[0] d2=d[1] */
-			   float *slow, /* Slowness velociy model */
-			   float *a, /* Normal ray angle for each NIP source (degrees) */
-			   int ns, /* Number of NIP sources */
-			   float ***data, /* Seismic data cube A(m,h,t) */
-			   int *data_n, /* Data number of samples */
-			   float *data_o, /* Data axis origin */
-			   float *data_d /* Data sampling */)
-/*< Return L2 norm of the time misfit: The time misfit is the difference
-between the traveltime calculated using raytracing and the traveltime calculated
-with the CRE traveltime formula 
-
-Values of x and p are changed inside the function.
-The trajectory traj is stored as follows: {z0,y0,z1,y1,z2,y2,...} in 2-D
-
-Note: This function traces nr reflection rays from each NIP source
-(a depth point coordinate) to acquisition surface. NIP sources coordinates
-are passed through s matrix. This function returns the L2 norm of the difference
-between the traveltime of the reflection rays and the calculated traveltime using CRE
-traveltime approximation. This difference is time misfit.
-
-To simulate a reflection ray, this function traces a ray from the NIP source to the
-source location in the acquisition surface and it stores its traveltime ts. And this
-function traces a ray from the NIP source to the receiver location in the acquisition
-surface and it stores the traveltime tr. The total reflection ray traveltime will be the
-sum of t=ts+tr.
- >*/
-{
-
-	int is; // loop counter
-	float ps[2]; // slowness vector
-	float pr[2]; // slowness vector
-	float t=0.; // Ray traveltime
-	int nt=10000; // number of time samples in each ray
-	float dt=0.001; // time sampling of rays
-	raytrace rts; // raytrace struct
-	raytrace rtr; // raytrace struct
-	float** trajs; // Ray trajectory (z,x)
-	float** trajr; // Ray trajectory (z,x)
-	float tmis=0; // time misfit
-	float xs[2]; // Source position (z,x)
-	float xr[2]; // Source position (z,x)
-	float beta;
-	float rnip;
-	float sumAmplitudes=0., sumAmplitudes2=0.;
-	float amplitudes[OFFSET_APERTURE];
-	int numSamples=1;
-	float nrdeg;
-	float semb;
-	float mean;
-	float tt;
-	int k, i;
-	int ir, it, ih, im, its, itr;
-	int nr=OFFSET_APERTURE;
-	float tr, ts, m, h;
-
-	/* initialize ray tracing object */
-	rts = raytrace_init(2,true,nt,dt,n,o,d,slow,ORDER);
-	trajs = sf_floatalloc2(2,nt+1);
-	rtr = raytrace_init(2,true,nt,dt,n,o,d,slow,ORDER);
-	trajr = sf_floatalloc2(2,nt+1);
-
-       for(is=0;is<ns;is++){
-
-                xs[0]=s[is][0];
-                xs[1]=s[is][1];
-                xr[0]=s[is][0];
-                xr[1]=s[is][1];
-                nrdeg = a[is]; // angle in degree
-		sumAmplitudes=0.;
-		sumAmplitudes2=0.;
-		mean=0.;
-
-                for(ir=0;ir<nr;ir++){
-
-			// NIP to source ray
-			ps[0] = -cosf(nrdeg-(ir+1)*DANGLE);
-			ps[1] = sinf(nrdeg-(ir+1)*DANGLE);
-
-			// NIP to receiver ray
-			pr[0] = -cosf(nrdeg+(ir+1)*DANGLE);
-			pr[1] = sinf(nrdeg+(ir+1)*DANGLE);
-
-			/* Ray tracing */
-			its = trace_ray (rts, xs, ps, trajs);
-			itr = trace_ray (rtr, xr, pr, trajr);
-
-			if(its>0 && itr>0){
-				ts=its*dt;
-				xs[0]=trajs[its][0];
-				xs[1]=trajs[its][1];
-				tr=itr*dt;
-				xr[0]=trajr[itr][0];
-				xr[1]=trajr[itr][1];
-			}else{ // Side or bottom ray
-				/* TODO to correct the way you treat side rays */
-				sf_warning("BAD RAY ANGLE IN ZGRAD INVERSION");
-				sf_warning("From: x=%f z=%f",s[is][0],s[is][1]);
-				sf_warning("To: x=%f z=%f",s[is][0],s[is][1]);
-				sf_warning("Traveltime (s): %f",t);
-				//sf_warning("Starting angle (degrees): %.2f",currentRayAngle*180./SF_PI);
-				//sf_warning("Escape angle (degrees): %.2f",currentRayAngle*180./SF_PI);
-				sf_error("Bad angle, ray get to the model side/bottom");
-			}
-
-                        m = (xr[1]+xs[1])/2.;
-                        h = (xr[1]-xs[1])/2.;
-
-			im = (m-data_o[2])/data_d[2];
-			ih = (h-data_o[1])/data_d[1];
-			it = ((ts+tr)-data_o[0])/data_d[0];
-			amplitudes[ir]=data[im][ih][it];
-
-			xs[0] = s[is][0];
-			xs[1] = s[is][1];
-
-			xr[0] = s[is][0];
-			xr[1] = s[is][1];
-			//sf_warning("%f %f",nrdeg+(ir+1)*DANGLE,nrdeg-(ir+1)*DANGLE);
-			//sf_warning("%d %d %d",im,ih,it);
-			//sf_warning("%f %f %f",m,h,ts+tr);
-			//sf_warning("%f",sumAmplitudes);
-                } /* Loop over reflection rays */
-		//for(k=0;k<nr;k++)
-		//	mean += amplitudes[k];
-		//mean /= nr;
-		sortingXinAscendingOrderToMedian(amplitudes,nr);
-		mean = amplitudes[OFFSET_APERTURE/2+1];
-		for(k=0;k<nr;k++){
-			sumAmplitudes += (amplitudes[k]-mean)*(amplitudes[k]-mean)*(amplitudes[k]-mean)*(amplitudes[k]-mean);
-			sumAmplitudes2 += amplitudes[k]*amplitudes[k]*amplitudes[k]*amplitudes[k];
-		}
-
-		semb += 1-(sumAmplitudes)/sumAmplitudes2;
-
-        } /* Loop over NIP sources */
-
-	/* Raytrace close */
-	raytrace_close(rts);
-	free(trajs);
-
-	raytrace_close(rtr);
-	free(trajr);
-
-        /* L2 norm to evaluate the time misfit */
-	return semb/ns;
-}

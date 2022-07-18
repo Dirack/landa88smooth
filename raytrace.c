@@ -142,9 +142,6 @@ float second_derivative(void *par, float *n, float *x, float v)
 	fx[0] = sqrtf(1./grid2_vel(rt->grd2,tmp));	
 
 	second_deriv(0.01,fx,der,3);
-	//if(der[1]>0.001 || der[1] <-0.001) sf_warning("v=%f %f %f d=%f %f",fx[0],fx[1],fx[2],der[1],(fx[0]-2*fx[1]+fx[2])/(dx*dx));
-	//sf_warning("ddnv=%f d=%f",der[1],(fx[0]-2*fx[1]+fx[2])/(dx*dx));
-	//der[1]=(fx[0]-2*fx[1]+fx[2])/(dx*dx);
 	return der[1];
 }
 
@@ -182,13 +179,11 @@ float calculateRNIPWithDynamicRayTracing(
 
 		v = sqrtf(1./grid2_vel(rt->grd2,x));
 
-		//sf_warning("v=%f",v);
 		/* Calculate derivative for each ray sample */
 		dvdn[it]=second_derivative(rt,n,x,v);
 
 	} // Loop over ray samples
 
-	//sf_error("oi");
 	/* Initial conditions for a point source */
 	x[0]=0.; // q=0
 	x[1]=1.; // p=1
@@ -198,11 +193,6 @@ float calculateRNIPWithDynamicRayTracing(
 	rnip = sf_dynamic_runge_step(x,rt,dyn_iso_rhs,dvdn,traj,v0);
 	sf_dynamic_runge_close();
 
-	/*if(rnip<0.){
-		for(it=0;it<nt;it++)
-			if(dvdn[it]<0.001 || dvdn[it] > 0.001)
-				sf_warning("rnip=%f dvdn[%d]=%f",rnip,it,dvdn[it]);
-	}*/
 	return rnip;
 }
 

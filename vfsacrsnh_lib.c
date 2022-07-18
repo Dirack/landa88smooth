@@ -42,14 +42,13 @@ float getVfsaIterationTemperature(int iteration,float dampingFactor,float inicia
 
 }
 
-/* TODO: Modify this function for multiple interfaces */
 void disturbParameters( float temperature, /* Temperature of this interation in VFSA */
 			float *disturbedVel, /* Parameters disturbed vector */
-			float *vel,
-			float minvel,
-			float maxvel,
+			float *vel, /* Interface velocity */
+			float minvel, /* Minimum interface velocity */
+			float maxvel, /* Maximun interface velocity */
 			float scale, /* Scale to multiply by disturbance */
-			int itf)
+			int itf /* Interface index */)
 /*< Disturb parameters from the previous iteration of VFSA
  Note: It receives a parameter vector and distubs it accordingly to 
 VFSA disturb parameters step.
@@ -58,7 +57,6 @@ VFSA disturb parameters step.
 
 	float u;
 	float disturbance;
-	int i,j;
 
 	u=getRandomNumberBetween0and1();
 				

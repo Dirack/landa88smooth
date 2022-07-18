@@ -110,7 +110,7 @@ void interfaceInterpolationFromNipSources(float **s, /* NIP sources */
                                           int *nsz, /* Number of nodepoints */
                                           float *osz, /* Nodepoints origin */
                                           float *dsz, /* Nodepoints sampling */
-					  int itf)
+					  int itf /* Interface index */)
 /*< Use NIP sources location to draw interfaces 
 Note: If the velocity model is correct the NIP sources location coincides with interfaces. So, they can be used to draw interface through cubic spline interpolation.
 >*/
@@ -123,7 +123,7 @@ Note: If the velocity model is correct the NIP sources location coincides with i
         float xx, xs; // X coordinate
         float oxs; // Spline's origin
         int l; // Spline index
-	float *szz;
+	float *szz; // Interface tmp vector
 
         tsx = sf_floatalloc(nxs+2);
         tsz = sf_floatalloc(nxs+2);
@@ -133,7 +133,6 @@ Note: If the velocity model is correct the NIP sources location coincides with i
                 for(im=0;im<nxs;im++){
                         tsz[im]=s[im][0];
                         tsx[im]=s[im][1];
-			//sf_warning("tsz=%f",tsz[im]);
                 }
                 sortingXinAscendingOrder(tsx,tsz,nxs);
                 calculateSplineCoeficients(nxs,tsx,tsz,coef);
@@ -162,7 +161,7 @@ Note: If the velocity model is correct the NIP sources location coincides with i
 }
 
 void smooth(float *data, int *n, int nrep, int *rect)
-/*< TODO >*/
+/*< Smooth velocity model using ENO interpolation >*/
 {
 	int dim = 2;
 	int dim1 = 1;
@@ -207,13 +206,13 @@ void updateVelocityModel(
 			   float *o, /* Velocity model axis origin o1=o[0] o2=o[1] */
 			   float *d, /* Velocity model sampling d1=d[0] d2=d[1] */
 			   float *sv, /* Velocity model disturbance */
-			   float *sz,
-			   int *nsz,
-			   float *osz,
-			   float *dsz,
-			   bool first,
-			   bool base,
-			   int itf)
+			   float *sz, /* Interfaces nodepoints */
+			   int *nsz, /* Number of nodes, number of interfaces */
+			   float *osz, /* Nodes origin, first interface index */
+			   float *dsz, /* Nodes sampling, interface increment */
+			   bool first, /* TODO remove this flag */
+			   bool base, /* TODO Remove this flag */
+			   int itf /* interface index */)
 /*< Velocity model update
 Note: This function uses a sv (layers velocity) vector and sz (depth interfaces
 coordinates) vector to build the depth velocity model. There is nsv constant
@@ -227,7 +226,9 @@ they are interpolated using natural cubic spline interpolation.
 	float zi[1];
 	float xx, z;
 	float *szz=NULL;
-	int rect[2]={10,10}, nrep=2;
+	#ifdef SMOOTH_VEL_MODEL
+	int rect[2]={10,10}, nrep=1;
+	#endif
 
 	if(first){
 		for(i2=0;i2<n[1];i2++){
@@ -249,9 +250,9 @@ they are interpolated using natural cubic spline interpolation.
 	       /* Calculate coefficients matrix (interfaces interpolation) */
 		coef = sf_floatalloc2(4*(nsz[0]-1),1);
 		calculateSplineCoeficients(nsz[0],x,szz,coef[0]);
+		// TODO remove this 'base' flag
 		if(base){
 			itf++; sf_warning("sv=%f",sv[itf]);
-			//sf_error("oi");
 		}
 
 		/* Calculate velocity function */
@@ -271,16 +272,14 @@ they are interpolated using natural cubic spline interpolation.
 			} /* Loop over depth */
 		} /* Loop over distance */
 
-		if(itf==4){
-		for(i=0;i<n[0];i++)
-			sf_warning("v[%d]=%f",i,vel[i]);
-		}
 		free(coef);
 		free(x);
 		free(szz);
 	}
 
+	#ifdef SMOOTH_VEL_MODEL
 	smooth(vel,n,nrep,rect);
+	#endif
 }
 
 void buildSlownessModelFromVelocityModel(
@@ -289,13 +288,13 @@ void buildSlownessModelFromVelocityModel(
 			 		 float *o, /* Velocity model axis origin o1=o[0] o2=o[1] */
 					 float *d, /* Velocity model sampling d1=d[0] d2=d[1] */
 					 float *sv, /* Velociy disturbance */
-					 float *sz,
-					 int *nsz,
-					 float *osz,
-					 float *dsz,
-					 bool first,
-					 bool base,
-					 int itf)
+					 float *sz, /* Interfaces nodepoints */
+					 int *nsz, /* Nodes per interface, number of interfaces */
+					 float *osz, /* Nodes origin, interfaces first index */
+					 float *dsz, /* Nodes sampling, interfaces increment */
+					 bool first, /* TODO: remove this flag */
+					 bool base, /* TODO: remove this flag */
+					 int itf /* Interface index */)
 /*< Slowness model build from velocity model
 Note: This function is a function wrapper to updateVelocityModel function.
 It calls that function to update the velocity model and build the slowness

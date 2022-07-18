@@ -79,8 +79,8 @@ nit = int(ARGUMENTS.get('nit',100)) # Number of iterations in tomography
 nitf = int(ARGUMENTS.get('nitf',2)) # Number of interfaces
 model = 'model_0' # Constant velocity model
 
-minvel=[1.5,1.60,1.7,2.0]
-maxvel=[1.51,2.,2.,2.5]
+minvel=[1.45,1.60,1.7,2.0]
+maxvel=[1.7,2.,2.,2.5]
 tryvel=[1.5,1.62,1.8,2.0]
 
 Flow('sz_2',None,'math output="1" n1=21 d1=0.5 o1=-2 n2=2')
@@ -160,7 +160,7 @@ for i in range(2):
 		first='y'
 	Flow([velinv,vspline,zspline,otsemb],[model,t0s,m0s,rnips,betas,sv,interpolatedDataCube,shotsfile,sz],
 	    '''
-	    landa88_smooth t0s=${SOURCES[1]} m0s=${SOURCES[2]} rnips=${SOURCES[3]} betas=${SOURCES[4]} sv=${SOURCES[5]} vspline=${TARGETS[1]} data=${SOURCES[6]} shotsfile=${SOURCES[7]} sz=${SOURCES[8]} zspline=${TARGETS[2]} v0=1.508 nit=%d c0=0.2 temp0=2 minvel=%g maxvel=%g first=%s itf=%d otsemb=${TARGETS[3]}
+	    landa88_smooth t0s=${SOURCES[1]} m0s=${SOURCES[2]} rnips=${SOURCES[3]} betas=${SOURCES[4]} sv=${SOURCES[5]} vspline=${TARGETS[1]} data=${SOURCES[6]} shotsfile=${SOURCES[7]} sz=${SOURCES[8]} zspline=${TARGETS[2]} v0=1.508 nit=%d c0=0.2 temp0=2 minvel=%g maxvel=%g first=%s itf=%d otsemb=${TARGETS[3]} cds=n
 	    ''' % (nit,minvel[i],maxvel[i],first,i))
 
 	model = velinv
