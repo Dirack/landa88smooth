@@ -156,11 +156,14 @@ for i in range(2):
 	vspline = 'vspline_%d' % i
 	zspline = 'zspline_%d' %i
 	otsemb = 'otsemb_%d' %i
+	otrnip = 'otrnip_%d' %i
+	otbeta = 'otbeta_%d' %i
 	if(i==0):
 		first='y'
-	Flow([velinv,vspline,zspline,otsemb],[model,t0s,m0s,rnips,betas,sv,interpolatedDataCube,shotsfile,sz],
+	Flow([velinv,vspline,zspline,otsemb,otrnip,otbeta],
+	[model,t0s,m0s,rnips,betas,sv,interpolatedDataCube,shotsfile,sz],
 	    '''
-	    landa88_smooth t0s=${SOURCES[1]} m0s=${SOURCES[2]} rnips=${SOURCES[3]} betas=${SOURCES[4]} sv=${SOURCES[5]} vspline=${TARGETS[1]} data=${SOURCES[6]} shotsfile=${SOURCES[7]} sz=${SOURCES[8]} zspline=${TARGETS[2]} v0=1.508 nit=%d c0=0.2 temp0=2 minvel=%g maxvel=%g first=%s itf=%d otsemb=${TARGETS[3]} cds=n
+	    landa88_smooth t0s=${SOURCES[1]} m0s=${SOURCES[2]} rnips=${SOURCES[3]} betas=${SOURCES[4]} sv=${SOURCES[5]} vspline=${TARGETS[1]} data=${SOURCES[6]} shotsfile=${SOURCES[7]} sz=${SOURCES[8]} zspline=${TARGETS[2]} v0=1.508 nit=%d c0=0.2 temp0=2 minvel=%g maxvel=%g first=%s itf=%d otsemb=${TARGETS[3]} otrnip=${TARGETS[4]} otbeta=${TARGETS[5]} cds=n
 	    ''' % (nit,minvel[i],maxvel[i],first,i))
 
 	model = velinv

@@ -145,6 +145,46 @@ float second_derivative(void *par, float *n, float *x, float v)
 	return der[1];
 }
 
+float clayton_second_derivative(void *par, float *n, float *x, float v)
+/*< Calculate the second derivative in the direction normal to ray trajectory >*/
+{
+	raytrace rt;
+	float dx=0.01;
+	float tmp[2];
+	float p2x, px, m2x, mx, fx;
+	float der;
+
+	rt = (raytrace) par;
+
+	// px
+	tmp[0] = x[0]+n[1]*dx;
+	tmp[1] = x[1]-n[0]*dx;
+	px = sqrtf(1./grid2_vel(rt->grd2,tmp));
+
+	// p2x
+	tmp[0] = x[0]+n[1]*2*dx;
+	tmp[1] = x[1]-n[0]*2*dx;
+	p2x = sqrtf(1./grid2_vel(rt->grd2,tmp));
+
+	// fx
+	fx=v;
+
+	// mx
+	tmp[0]=x[0]-n[1]*dx;
+	tmp[1]=x[1]+n[0]*dx;
+	mx = sqrtf(1./grid2_vel(rt->grd2,tmp));	
+
+	// m2x
+	tmp[0]=x[0]-n[1]*2*dx;
+	tmp[1]=x[1]+n[0]*2*dx;
+	m2x = sqrtf(1./grid2_vel(rt->grd2,tmp));	
+
+	der = -p2x+16*px-30*fx+16*mx-m2x;
+	der /= (12*dx*dx);
+	return der;
+}
+
+
 float calculateRNIPWithDynamicRayTracing(
 					  void *par, /* Raytrace struct */
 					  float dt, /* Time sampling */
@@ -180,6 +220,7 @@ float calculateRNIPWithDynamicRayTracing(
 		v = sqrtf(1./grid2_vel(rt->grd2,x));
 
 		/* Calculate derivative for each ray sample */
+		//dvdn[it]=clayton_second_derivative(rt,n,x,v);
 		dvdn[it]=second_derivative(rt,n,x,v);
 
 	} // Loop over ray samples
