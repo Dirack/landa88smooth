@@ -28,8 +28,8 @@ int main(int argc, char* argv[])
 	float** s; // NIP sources position (z,x)
 	float *cnewv; // Temporary parameters vector used in VFSA
 	float *otsv; // Optimized parameters vector
-	float tmis0; // Best time misfit
-	float otmis=0; // Best time misfit
+	float semb0; // Best semblance
+	float semb=0; // Best semblance
 	float deltaE; // Delta (Metrópolis criteria in VFSA)
 	float Em0=0; // Energy (VFSA algorithm)
 	float PM; // Metrópolis criteria
@@ -48,18 +48,17 @@ int main(int argc, char* argv[])
 	float v0; // Near surface velocity
 	int ns; // Number of NIP sources
 	int q; // Loop counter for VFSA iteration
-	float tmis; // data time misfit value
 	float *m0; // CMP's for normal rays
 	float *t0; // t0's for normal rays
 	float *RNIP; // Rnip parameters vector
 	float *rnip; // RNIP tmp vector
 	float *BETA; // Beta parameters vector
 	float *beta; // BETA tmp vector
-	float *otrnip;
-	float *otbeta;
-	float *otsemb;
+	float *otrnip; // Optimized RNIP
+	float *otbeta; // Optimized BETA
+	float *otsemb; // Optimized semblance
 	float *sv; // Layer's Velocity
-	int nsv;
+	int nsv; // Number of layers
 	float minvel; // Minimun layer velocity
 	float maxvel; // Maximum layer velocity
 	bool first; // First interface inversion?
@@ -74,8 +73,8 @@ int main(int argc, char* argv[])
 	int data_n[3]; // n1, n2, n3 dimension of data
 	float data_o[3]; // o1, o2, o3 axis origins of data
 	float data_d[3]; // d1, d2, d3 sampling of data
-	int itf;
-	bool cds;
+	int itf; // Interfaces index
+	bool cds; // Use CDS condition?
 	sf_file shots; // NIP sources (z,x)
 	sf_file vel; // background velocity model
 	sf_file vz_file; // Initial Layer velocity
@@ -88,9 +87,9 @@ int main(int argc, char* argv[])
 	sf_file betas; // BETA parameter for each m0
 	sf_file vspline; // Layers velocity (output)
 	sf_file datafile; // Prestack data A(m,h,t)
-	sf_file otsemb_file;
-	sf_file otrnip_file;
-	sf_file otbeta_file;
+	sf_file otsemb_file; // Optimized semblance
+	sf_file otrnip_file; // Optimized RNIP
+	sf_file otbeta_file; // Optimized BETA
 
 	sf_init(argc,argv);
 
@@ -213,7 +212,6 @@ int main(int argc, char* argv[])
 	otrnip = sf_floatalloc(ns);
 	otbeta = sf_floatalloc(ns);
 	otsemb = sf_floatalloc(nit);
-	//for(im=0;im<ns;im++) BETA[im]=0.;
 	sf_floatread(BETA,ns,betas);
 
 	/* get slowness squared (Background model) */
@@ -264,8 +262,7 @@ int main(int argc, char* argv[])
 	if(!base){
 		buildSlownessModelFromVelocityModel(slow,n,o,d,sv,sz,nsz,osz,dsz,first,base,itf);
 		modelSetup(s, ns,  m0, t0, BETA,  a,  n,  d,  o,  slow);
-		tmis0=0.;
-		otmis=tmis0;
+		semb0=0.;
 
 		/* Initiate optimal parameters vectors */
 		for(im=0;im<ns;im++){
@@ -292,33 +289,30 @@ int main(int argc, char* argv[])
 			buildSlownessModelFromVelocityModel(slow,n,o,d,cnewv,sz,nsz,osz,dsz,first,base,itf);
 
 			/* NIP sources setup for new model */
-			tmis=0;
+			semb=0;
 			modelSetup(s, ns,  m0, t0, BETA,  a,  n,  d,  o,  slow);
 
 			/* Forward modeling */
-			// TODO change tmis variable name to semb (Semblance)
-			tmis=forwardModeling(s,v0,t0,m0,RNIP,BETA,n,o,d,slow,a,ns,data,data_n,data_o,data_d,itf,cnewv,nsv,sz,nsz,osz,dsz,rnip,beta,cds);
+			semb=forwardModeling(s,v0,t0,m0,RNIP,BETA,n,o,d,slow,a,ns,data,data_n,data_o,data_d,itf,cnewv,nsv,sz,nsz,osz,dsz,rnip,beta,cds);
 		
-			if(fabs(tmis) > fabs(tmis0) ){
-				otmis = fabs(tmis);
+			if(fabs(semb) > fabs(semb0) ){
 				/* Keep optimized parameters */
 				for(im=0;im<ns;im++){
 					ots[im][0]=s[im][0];
 					ots[im][1]=s[im][1];
 					otrnip[im]=rnip[im];
 					otbeta[im]=beta[im];
-					//BETA[im]=otbeta[im];
-					sf_warning("RNIP=%f BETA=%f",otrnip[im],otbeta[im]);
+					if(verb) sf_warning("RNIP=%f BETA=%f",otrnip[im],otbeta[im]);
 				}
 				for(im=0;im<nsv;im++)
 					otsv[im]=cnewv[im];
-				tmis0 = fabs(tmis);
+				semb0 = fabs(semb);
 			}
 
-			otsemb[q]=fabs(otmis);
+			otsemb[q]=fabs(semb);
 
 			/* VFSA parameters update condition */
-			deltaE = fabs(tmis) - Em0;
+			deltaE = fabs(semb) - Em0;
 			
 			/* Metrópolis criteria */
 			PM = expf(-deltaE/temp);
@@ -326,18 +320,18 @@ int main(int argc, char* argv[])
 			if (deltaE<=0){
 				for(im=0;im<nsv;im++)
 					sv[im]=cnewv[nsv];
-				Em0 = fabs(tmis);
+				Em0 = fabs(semb);
 			} else {
 				u=getRandomNumberBetween0and1();
 				if (PM > u){
 					for(im=0;im<nsv;im++)
 						sv[im]=cnewv[im];
-					Em0 = fabs(tmis);
+					Em0 = fabs(semb);
 				}
 			}	
 			
 			// TODO do not show this iteration semblance, only optimal one	
-			sf_warning("%d/%d Missfit(%f) vel=%f v=%f %f ;",q+1,nit,otmis,otsv[itf],cnewv[itf],tmis);
+			sf_warning("%d/%d Missfit(%f) vel=%f v=%f %f ;",q+1,nit,semb0,otsv[itf],cnewv[itf],semb);
 
 		} /* loop over VFSA iterations */
 		interfaceInterpolationFromNipSources(ots,ns,otsz,nsz,osz,dsz,itf);
@@ -346,7 +340,7 @@ int main(int argc, char* argv[])
 
 	/* Generate optimal velocity model and interfaces */
 	updateVelocityModel(slow,n,o,d,otsv,sz,nsz,osz,dsz,first,base,itf);
-	sf_warning("sv=%f %f %f",otsv[0],otsv[1],otsv[2]);
+	if(verb) sf_warning("sv=%f %f %f",otsv[0],otsv[1],otsv[2]);
 
 	/* Write interfaces nodepoints */
 	sf_putint(zspline,"n1",nsz[0]);
