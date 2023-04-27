@@ -309,7 +309,7 @@ int main(int argc, char* argv[])
 				semb0 = fabs(semb);
 			}
 
-			otsemb[q]=fabs(semb);
+			otsemb[q]=fabs(semb0);
 
 			/* VFSA parameters update condition */
 			deltaE = fabs(semb) - Em0;

@@ -21,9 +21,9 @@ from rsf.proj import *
 
 # Madagascar Recipes
 from rsf.recipes.pefInterpolation import pefInterpolation as pef
-from rsf.recipes.kimodel import multiLayerModelBuild as mlmod
+from rsf.recipes.kimodel import multiLayerModel as mlmod
 from rsf.recipes.kimodel import kirchhoffNewtonModeling as kinewmod
-from rsf.recipes.utils import arr2str
+from rsf.recipes.kimodel import arr2str
 
 # Main Files
 trueModel='trueModel'
@@ -36,7 +36,7 @@ xmax = 6.0
 zmax = 4.0
 
 layers = ((1.00,1.20,0.90,1.00),
-	 (1.85,1.85,1.85,1.85))
+          (2.00,1.85,1.95,1.90))
 
 velocities = (1.508,
               1.690,
@@ -80,7 +80,7 @@ nitf = int(ARGUMENTS.get('nitf',2)) # Number of interfaces
 model = 'model_0' # Constant velocity model
 
 minvel=[1.45,1.60,1.7,2.0]
-maxvel=[1.7,2.,2.,2.5]
+maxvel=[1.65,2.,2.,2.5]
 tryvel=[1.5,1.62,1.8,2.0]
 
 Flow('sz_2',None,'math output="1" n1=21 d1=0.5 o1=-2 n2=2')
@@ -112,7 +112,7 @@ mlmod(interfaces='interfaces',
 
 picks=[]
 for i in range(2):
-	Flow('pick'+str(i)+'.txt',parametersCube,'window n3=1 f3=3 | ipick color=j')
+	Flow('pick'+str(i)+'.txt',stackedSection,'ipick')
 	picks.append('pick'+str(i)+'.txt')
 	files=['t0s'+str(i),'m0s'+str(i)]
 	k=1
@@ -156,14 +156,11 @@ for i in range(2):
 	vspline = 'vspline_%d' % i
 	zspline = 'zspline_%d' %i
 	otsemb = 'otsemb_%d' %i
-	otrnip = 'otrnip_%d' %i
-	otbeta = 'otbeta_%d' %i
 	if(i==0):
 		first='y'
-	Flow([velinv,vspline,zspline,otsemb,otrnip,otbeta],
-	[model,t0s,m0s,rnips,betas,sv,interpolatedDataCube,shotsfile,sz],
+	Flow([velinv,vspline,zspline,otsemb],[model,t0s,m0s,rnips,betas,sv,interpolatedDataCube,shotsfile,sz],
 	    '''
-	    landa88_smooth t0s=${SOURCES[1]} m0s=${SOURCES[2]} rnips=${SOURCES[3]} betas=${SOURCES[4]} sv=${SOURCES[5]} vspline=${TARGETS[1]} data=${SOURCES[6]} shotsfile=${SOURCES[7]} sz=${SOURCES[8]} zspline=${TARGETS[2]} v0=1.508 nit=%d c0=0.2 temp0=2 minvel=%g maxvel=%g first=%s itf=%d otsemb=${TARGETS[3]} otrnip=${TARGETS[4]} otbeta=${TARGETS[5]} cds=y
+	    landa88_smooth t0s=${SOURCES[1]} m0s=${SOURCES[2]} rnips=${SOURCES[3]} betas=${SOURCES[4]} sv=${SOURCES[5]} vspline=${TARGETS[1]} data=${SOURCES[6]} shotsfile=${SOURCES[7]} sz=${SOURCES[8]} zspline=${TARGETS[2]} v0=1.508 nit=%d c0=0.2 temp0=2 minvel=%g maxvel=%g first=%s itf=%d otsemb=${TARGETS[3]} cds=n
 	    ''' % (nit,minvel[i],maxvel[i],first,i))
 
 	model = velinv

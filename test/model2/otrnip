@@ -1,0 +1,36 @@
+3.1.1	sfmath	landa88smooth/test/model2:	rodolfo@rodolfo-Nitro-AN515-54	Tue Jul 12 10:23:31 2022
+
+	x2=1
+	d2=0.01
+	n2=1001
+	o1=0
+	o2=-2
+	data_format="native_float"
+	esize=4
+	in="/home/rodolfo/rsfdata/landa88smooth/test/model2/constv.rsf@"
+	x1=0
+	d1=0.01
+	n1=301
+3.1.1	sflanda88_smooth	landa88smooth/test/model2:	rodolfo@rodolfo-Nitro-AN515-54	Sun Sep 11 20:34:20 2022
+
+	o1=0
+	d2=0.01
+	n2=1001
+	d3=1
+	o2=-2
+	n3=1
+	data_format="native_float"
+	o3=0
+	esize=4
+	in="/home/rodolfo/rsfdata/landa88smooth/test/model2/modelinv_0.rsf@"
+	d1=0.01
+	n1=301
+3.1.1	sflanda88_smooth	landa88smooth/test/model2:	rodolfo@rodolfo-Nitro-AN515-54	Sun Sep 11 20:34:47 2022
+
+	o1=0
+	n2=1
+	data_format="native_float"
+	esize=4
+	in="/home/rodolfo/rsfdata/landa88smooth/test/model2/otrnip@"
+	d1=1
+	n1=13

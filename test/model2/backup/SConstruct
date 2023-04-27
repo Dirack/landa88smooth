@@ -1,0 +1,35 @@
+from rsf.proj import *
+
+trueModel='trueModel'
+velinv = 'velinv_res'
+
+#### Model ####
+# Plot inverted velocity model with NIP sources
+Plot('velocityModel',velinv,
+	'''
+	grey color=j scalebar=y barreverse=y bias=1.508 title="Model 2 - CRE Inversion Result" barlabel="Velocity" barunit="Km/s" min2=1 max2=5 label2=Position unit2=Km label1=Depth unit1=Km
+	''')
+
+Plot('inverted-interfaces',['velocityModel','inverted-nipsources'],'Overlay')
+
+# Plot original velocity model
+Plot('mod1',trueModel,
+	'''
+	put label1=Depth unit1=Km label2=Position unit2=Km |
+	grey color=j scalebar=y barreverse=y bias=1.508 title="Model 2" barlabel="Velocity" barunit="Km/s" min1=0 max1=3 min2=1 max2=5
+	''')
+
+Plot('mod1-img',['mod1','inverted-nipsources'],'Overlay')
+
+# Plot result: Inverted and original models side by side
+Result('inverted-original',['mod1-img','inverted-interfaces'],'SideBySideIso')
+
+Plot('otsemb_0',
+        '''
+        graph title="Semblance - Layer 1" symbol=* max2=0.3
+        ''')
+
+Plot('otsemb_1',
+    '''
+    graph title="Semblance - Layer 2" symbol=* max2=0.45
+    ''')
